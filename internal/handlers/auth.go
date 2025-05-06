@@ -29,11 +29,6 @@ func RegisterHandler(repo db.UserRepository) http.HandlerFunc {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
-
-		// Реальная реализация должна:
-		// 1. Проверять, существует ли пользователь
-		// 2. Хэшировать пароль
-		// 3. Сохранять в БД
 		err := repo.CreateUser(req.Username, req.Password)
 		if err != nil {
 			response := AuthResponse{Error: err.Error()}
@@ -61,9 +56,6 @@ func LoginHandler(repo db.UserRepository) http.HandlerFunc {
 			return
 		}
 
-		// Реальная реализация должна:
-		// 1. Проверять учетные данные
-		// 2. Генерировать JWT токен
 		_, err := repo.GetUserByCredentials(req.Username, req.Password)
 		if err != nil {
 			response := AuthResponse{Error: "invalid credentials"}
