@@ -1,10 +1,11 @@
 package middleware
 
 import (
-	"calc_golang_final/internal/auth"
 	"context"
 	"net/http"
 	"strings"
+
+	"github.com/kupetss/calculator_golang_final/internal/auth"
 )
 
 func AuthMiddleware(next http.Handler) http.Handler {

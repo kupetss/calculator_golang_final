@@ -1,19 +1,19 @@
 package main
 
 import (
-	"calc_golang_final/internal/db"
-	"calc_golang_final/internal/handlers"
-	"calc_golang_final/internal/middleware"
 	"database/sql"
 	"log"
 	"net/http"
 
+	"github.com/kupetss/calculator_golang_final/internal/db"
+	"github.com/kupetss/calculator_golang_final/internal/handlers"
+	"github.com/kupetss/calculator_golang_final/internal/middleware"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
 	// Инициализация БД
-	database, err := sql.Open("sqlite3", "calc.db")
+	database, err := sql.Open("sqlite3", "./data/calc.db")
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}

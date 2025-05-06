@@ -8,7 +8,7 @@ import (
 )
 
 // Секретный ключ для подписи (замените на свой в продакшене)
-var jwtSecret = []byte("your-very-secret-key-32-chars-min")
+var jwtSecret = []byte("123")
 
 // Claims - структура для хранения данных в токене
 type Claims struct {

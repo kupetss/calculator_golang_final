@@ -1,11 +1,12 @@
 package handlers
 
 import (
-	"calc_golang_final/internal/auth"
-	"calc_golang_final/internal/types"
 	"database/sql"
 	"encoding/json"
 	"net/http"
+
+	"github.com/kupetss/calculator_golang_final/internal/auth"
+	"github.com/kupetss/calculator_golang_final/internal/types"
 )
 
 // RegisterHandler обрабатывает регистрацию пользователя

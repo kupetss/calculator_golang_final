@@ -1,4 +1,4 @@
-module calc_golang_final
+module github.com/kupetss/calculator_golang_final
 
 go 1.23.5
 
