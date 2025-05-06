@@ -1,73 +1,79 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 
-	"github.com/kupetss/calculator_golang_final/internal/auth"
-	"github.com/kupetss/calculator_golang_final/internal/types"
+	"github.com/kupetss/calculator_golang_final/internal/db"
 )
 
-// RegisterHandler обрабатывает регистрацию пользователя
-func RegisterHandler(db *sql.DB) http.HandlerFunc {
+type AuthRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type AuthResponse struct {
+	Token string `json:"token,omitempty"`
+	Error string `json:"error,omitempty"`
+}
+
+func RegisterHandler(repo db.UserRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.RegisterRequest
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req AuthRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request format", http.StatusBadRequest)
+			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
 
-		hashedPassword, err := auth.HashPassword(req.Password)
+		// Реальная реализация должна:
+		// 1. Проверять, существует ли пользователь
+		// 2. Хэшировать пароль
+		// 3. Сохранять в БД
+		err := repo.CreateUser(req.Username, req.Password)
 		if err != nil {
-			http.Error(w, "Failed to process password", http.StatusInternalServerError)
+			response := AuthResponse{Error: err.Error()}
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(response)
 			return
 		}
 
-		_, err = db.Exec("INSERT INTO users (login, password) VALUES (?, ?)", req.Login, hashedPassword)
-		if err != nil {
-			http.Error(w, "Username already exists", http.StatusConflict)
-			return
-		}
-
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]string{"status": "user created"})
+		response := AuthResponse{Token: "generated-jwt-token"}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
 	}
 }
 
-// LoginHandler обрабатывает вход пользователя
-func LoginHandler(db *sql.DB) http.HandlerFunc {
+func LoginHandler(repo db.UserRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.LoginRequest
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req AuthRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request format", http.StatusBadRequest)
+			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
 
-		var (
-			userID     int
-			storedPass string
-		)
-		err := db.QueryRow("SELECT id, password FROM users WHERE login = ?", req.Login).Scan(&userID, &storedPass)
+		// Реальная реализация должна:
+		// 1. Проверять учетные данные
+		// 2. Генерировать JWT токен
+		_, err := repo.GetUserByCredentials(req.Username, req.Password)
 		if err != nil {
-			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			response := AuthResponse{Error: "invalid credentials"}
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(response)
 			return
 		}
 
-		if !auth.CheckPassword(req.Password, storedPass) {
-			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
-			return
-		}
-
-		token, err := auth.GenerateToken(userID)
-		if err != nil {
-			http.Error(w, "Failed to generate token", http.StatusInternalServerError)
-			return
-		}
-
-		response := types.LoginResponse{
-			Token: token,
-		}
+		response := AuthResponse{Token: "generated-jwt-token"}
+		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}
 }

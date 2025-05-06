@@ -13,7 +13,7 @@ import (
 
 func main() {
 	// Инициализация БД
-	database, err := sql.Open("sqlite3", "./data/calc.db")
+	database, err := sql.Open("sqlite3", "./calc.db")
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
@@ -27,16 +27,18 @@ func main() {
 	// Инициализация репозиториев
 	userRepo := db.NewUserRepository(database)
 
-	// Настройка маршрутов
-	http.HandleFunc("/api/v1/register", handlers.RegisterHandler(userRepo))
-	http.HandleFunc("/api/v1/login", handlers.LoginHandler(userRepo))
+	// Создаем основной роутер
+	router := http.NewServeMux()
 
-	// Защищенные маршруты
+	// Публичные маршруты (без аутентификации)
+	router.HandleFunc("POST /api/v1/register", handlers.RegisterHandler(userRepo))
+	router.HandleFunc("POST /api/v1/login", handlers.LoginHandler(userRepo))
+
+	// Защищенные маршруты (с аутентификацией)
 	protected := http.NewServeMux()
-	protected.HandleFunc("/api/v1/calculate", handlers.CalculateHandler())
-
-	http.Handle("/api/v1/", middleware.AuthMiddleware(protected))
+	protected.HandleFunc("POST /api/v1/calculate", handlers.CalculateHandler())
+	router.Handle("/api/v1/", middleware.AuthMiddleware(protected))
 
 	log.Println("Server running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", router))
 }

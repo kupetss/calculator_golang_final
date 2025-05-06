@@ -1,33 +1,39 @@
 package db
 
 import (
-	"calc_golang_final/internal/models"
 	"database/sql"
 )
 
-type UserRepository struct {
+type User struct {
+	ID       int64
+	Username string
+	Password string // На практике пароль должен храниться в хэшированном виде
+}
+
+type UserRepository interface {
+	CreateUser(username, password string) error
+	GetUserByCredentials(username, password string) (*User, error)
+}
+
+type userRepository struct {
 	db *sql.DB
 }
 
-func NewUserRepository(db *sql.DB) *UserRepository {
-	return &UserRepository{db: db}
+func NewUserRepository(db *sql.DB) UserRepository {
+	return &userRepository{db: db}
 }
 
-func (r *UserRepository) CreateUser(user *models.User) error {
-	_, err := r.db.Exec(
-		"INSERT INTO users (login, password) VALUES (?, ?)",
-		user.Login,
-		user.Password,
-	)
+func (r *userRepository) CreateUser(username, password string) error {
+	// Реализация сохранения пользователя в БД
+	_, err := r.db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", username, password)
 	return err
 }
 
-func (r *UserRepository) GetUserByLogin(login string) (*models.User, error) {
-	user := &models.User{}
-	err := r.db.QueryRow(
-		"SELECT id, login, password FROM users WHERE login = ?",
-		login,
-	).Scan(&user.ID, &user.Login, &user.Password)
-
-	return user, err
+func (r *userRepository) GetUserByCredentials(username, password string) (*User, error) {
+	var user User
+	err := r.db.QueryRow("SELECT id, username FROM users WHERE username = ? AND password = ?", username, password).Scan(&user.ID, &user.Username)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
