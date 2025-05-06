@@ -2,54 +2,69 @@ package handlers
 
 import (
 	"calc_golang_final/internal/auth"
-	"calc_golang_final/internal/db"
+	"calc_golang_final/internal/types"
+	"database/sql"
 	"encoding/json"
 	"net/http"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
-type AuthHandler struct {
-	UserRepo *db.UserRepository
+func RegisterHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.RegisterRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Неверный формат данных", http.StatusBadRequest)
+			return
+		}
+
+		hashedPassword, err := auth.HashPassword(req.Password)
+		if err != nil {
+			http.Error(w, "Ошибка сервера", http.StatusInternalServerError)
+			return
+		}
+
+		_, err = db.Exec("INSERT INTO users (login, password) VALUES (?, ?)",
+			req.Login, hashedPassword)
+		if err != nil {
+			http.Error(w, "Логин уже занят", http.StatusConflict)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Пользователь зарегистрирован"))
+	}
 }
 
-func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	// 1. Парсим запрос
-	var request struct {
-		Login    string `json:"login"`
-		Password string `json:"password"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
+func LoginHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// 1. Парсим запрос
+		var req types.RegisterRequest // Используем ту же структуру
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Неверный формат данных", http.StatusBadRequest)
+			return
+		}
 
-	user, err := h.UserRepo.GetUserByLogin(request.Login)
-	if err != nil {
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
-	}
-	if user == nil {
-		http.Error(w, "User not found", http.StatusUnauthorized)
-		return
-	}
+		// 2. Ищем пользователя в БД
+		var storedPassword string
+		err := db.QueryRow("SELECT password FROM users WHERE login = ?", req.Login).Scan(&storedPassword)
+		if err != nil {
+			http.Error(w, "Пользователь не найден", http.StatusUnauthorized)
+			return
+		}
 
-	if err := bcrypt.CompareHashAndPassword(
-		[]byte(user.PasswordHash),
-		[]byte(request.Password),
-	); err != nil {
-		http.Error(w, "Invalid password", http.StatusUnauthorized)
-		return
-	}
+		// 3. Проверяем пароль
+		if !auth.CheckPassword(req.Password, storedPassword) {
+			http.Error(w, "Неверный пароль", http.StatusUnauthorized)
+			return
+		}
 
-	token, err := auth.GenerateToken(user.ID)
-	if err != nil {
-		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
-		return
-	}
+		// 4. Генерируем JWT-токен
+		token, err := auth.GenerateToken(req.Login)
+		if err != nil {
+			http.Error(w, "Ошибка генерации токена", http.StatusInternalServerError)
+			return
+		}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"token": token,
-	})
+		// 5. Отправляем токен
+		json.NewEncoder(w).Encode(types.LoginResponse{Token: token})
+	}
 }

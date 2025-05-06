@@ -1,8 +1,8 @@
 package main
 
 import (
-	"calc_golang_final/internal/db"
 	"calc_golang_final/internal/handlers"
+	"calc_golang_final/middleware"
 	"database/sql"
 	"log"
 	"net/http"
@@ -11,17 +11,27 @@ import (
 )
 
 func main() {
-	database, err := sql.Open("sqlite3", "./data.db")
+	db, err := sql.Open("sqlite3", "calc.db")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Ошибка подключения к БД:", err)
 	}
-	defer database.Close()
+	defer db.Close()
 
-	userRepo := &db.UserRepository{DB: database}
-	authHandler := &handlers.AuthHandler{UserRepo: userRepo}
+	_, err = db.Exec(`
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            login TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL
+        )
+    `)
+	if err != nil {
+		log.Fatal("Ошибка при создании таблицы users:", err)
+	}
 
-	http.HandleFunc("/api/v1/login", authHandler.Login)
-
-	log.Println("Server started on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Println("Таблица users готова")
+	http.HandleFunc("/api/v1/register", handlers.RegisterHandler(db))
+	http.HandleFunc("/api/v1/login", handlers.LoginHandler(db))
+	http.Handle("/api/v1/calculate", middleware.AuthMiddleware(http.HandlerFunc(handlers.CalculateHandler)))
+	log.Println("Сервер запущен на :8080")
+	http.ListenAndServe(":8080", nil)
 }
