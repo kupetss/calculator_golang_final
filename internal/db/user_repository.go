@@ -6,21 +6,28 @@ import (
 )
 
 type UserRepository struct {
-	DB *sql.DB
+	db *sql.DB
+}
+
+func NewUserRepository(db *sql.DB) *UserRepository {
+	return &UserRepository{db: db}
+}
+
+func (r *UserRepository) CreateUser(user *models.User) error {
+	_, err := r.db.Exec(
+		"INSERT INTO users (login, password) VALUES (?, ?)",
+		user.Login,
+		user.Password,
+	)
+	return err
 }
 
 func (r *UserRepository) GetUserByLogin(login string) (*models.User, error) {
-	var user models.User
-	err := r.DB.QueryRow(
-		"SELECT id, login, password_hash FROM users WHERE login = ?",
+	user := &models.User{}
+	err := r.db.QueryRow(
+		"SELECT id, login, password FROM users WHERE login = ?",
 		login,
-	).Scan(&user.ID, &user.Login, &user.PasswordHash)
+	).Scan(&user.ID, &user.Login, &user.Password)
 
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
+	return user, err
 }

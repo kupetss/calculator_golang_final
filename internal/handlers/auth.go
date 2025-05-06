@@ -8,63 +8,65 @@ import (
 	"net/http"
 )
 
+// RegisterHandler обрабатывает регистрацию пользователя
 func RegisterHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.RegisterRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Неверный формат данных", http.StatusBadRequest)
+			http.Error(w, "Invalid request format", http.StatusBadRequest)
 			return
 		}
 
 		hashedPassword, err := auth.HashPassword(req.Password)
 		if err != nil {
-			http.Error(w, "Ошибка сервера", http.StatusInternalServerError)
+			http.Error(w, "Failed to process password", http.StatusInternalServerError)
 			return
 		}
 
-		_, err = db.Exec("INSERT INTO users (login, password) VALUES (?, ?)",
-			req.Login, hashedPassword)
+		_, err = db.Exec("INSERT INTO users (login, password) VALUES (?, ?)", req.Login, hashedPassword)
 		if err != nil {
-			http.Error(w, "Логин уже занят", http.StatusConflict)
+			http.Error(w, "Username already exists", http.StatusConflict)
 			return
 		}
 
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Пользователь зарегистрирован"))
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"status": "user created"})
 	}
 }
 
+// LoginHandler обрабатывает вход пользователя
 func LoginHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// 1. Парсим запрос
-		var req types.RegisterRequest // Используем ту же структуру
+		var req types.LoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Неверный формат данных", http.StatusBadRequest)
+			http.Error(w, "Invalid request format", http.StatusBadRequest)
 			return
 		}
 
-		// 2. Ищем пользователя в БД
-		var storedPassword string
-		err := db.QueryRow("SELECT password FROM users WHERE login = ?", req.Login).Scan(&storedPassword)
+		var (
+			userID     int
+			storedPass string
+		)
+		err := db.QueryRow("SELECT id, password FROM users WHERE login = ?", req.Login).Scan(&userID, &storedPass)
 		if err != nil {
-			http.Error(w, "Пользователь не найден", http.StatusUnauthorized)
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
 
-		// 3. Проверяем пароль
-		if !auth.CheckPassword(req.Password, storedPassword) {
-			http.Error(w, "Неверный пароль", http.StatusUnauthorized)
+		if !auth.CheckPassword(req.Password, storedPass) {
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
 
-		// 4. Генерируем JWT-токен
-		token, err := auth.GenerateToken(req.Login)
+		token, err := auth.GenerateToken(userID)
 		if err != nil {
-			http.Error(w, "Ошибка генерации токена", http.StatusInternalServerError)
+			http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 			return
 		}
 
-		// 5. Отправляем токен
-		json.NewEncoder(w).Encode(types.LoginResponse{Token: token})
+		response := types.LoginResponse{
+			Token: token,
+		}
+		json.NewEncoder(w).Encode(response)
 	}
 }

@@ -1,8 +1,9 @@
 package main
 
 import (
+	"calc_golang_final/internal/db"
 	"calc_golang_final/internal/handlers"
-	"calc_golang_final/middleware"
+	"calc_golang_final/internal/middleware"
 	"database/sql"
 	"log"
 	"net/http"
@@ -11,27 +12,31 @@ import (
 )
 
 func main() {
-	db, err := sql.Open("sqlite3", "calc.db")
+	// Инициализация БД
+	database, err := sql.Open("sqlite3", "calc.db")
 	if err != nil {
-		log.Fatal("Ошибка подключения к БД:", err)
+		log.Fatal("Failed to connect to database:", err)
 	}
-	defer db.Close()
+	defer database.Close()
 
-	_, err = db.Exec(`
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            login TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL
-        )
-    `)
-	if err != nil {
-		log.Fatal("Ошибка при создании таблицы users:", err)
+	// Применение миграций
+	if err := db.Migrate(database); err != nil {
+		log.Fatal("Migration failed:", err)
 	}
 
-	log.Println("Таблица users готова")
-	http.HandleFunc("/api/v1/register", handlers.RegisterHandler(db))
-	http.HandleFunc("/api/v1/login", handlers.LoginHandler(db))
-	http.Handle("/api/v1/calculate", middleware.AuthMiddleware(http.HandlerFunc(handlers.CalculateHandler)))
-	log.Println("Сервер запущен на :8080")
-	http.ListenAndServe(":8080", nil)
+	// Инициализация репозиториев
+	userRepo := db.NewUserRepository(database)
+
+	// Настройка маршрутов
+	http.HandleFunc("/api/v1/register", handlers.RegisterHandler(userRepo))
+	http.HandleFunc("/api/v1/login", handlers.LoginHandler(userRepo))
+
+	// Защищенные маршруты
+	protected := http.NewServeMux()
+	protected.HandleFunc("/api/v1/calculate", handlers.CalculateHandler())
+
+	http.Handle("/api/v1/", middleware.AuthMiddleware(protected))
+
+	log.Println("Server running on :8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
