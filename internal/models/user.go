@@ -1,7 +1,7 @@
 package models
 
 type User struct {
-	ID       int    `json:"id"`
-	Login    string `json:"login"`
-	Password string `json:"password"`
+	ID           int    `db:"id"`
+	Login        string `db:"login"` // Было Username
+	PasswordHash string `db:"password_hash"`
 }

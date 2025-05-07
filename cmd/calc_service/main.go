@@ -28,7 +28,6 @@ func main() {
 
 	router.HandleFunc("POST /api/v1/register", handlers.RegisterHandler(userRepo))
 	router.HandleFunc("POST /api/v1/login", handlers.LoginHandler(userRepo))
-
 	protected := http.NewServeMux()
 	protected.HandleFunc("POST /api/v1/calculate", handlers.CalculateHandler())
 	router.Handle("/api/v1/", middleware.AuthMiddleware(protected))

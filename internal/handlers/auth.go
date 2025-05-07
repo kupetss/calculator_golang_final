@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/kupetss/calculator_golang_final/internal/auth"
 	"github.com/kupetss/calculator_golang_final/internal/db"
 )
 
 type AuthRequest struct {
-	Username string `json:"username"`
+	Login    string `json:"login"`
 	Password string `json:"password"`
 }
 
@@ -29,7 +30,17 @@ func RegisterHandler(repo db.UserRepository) http.HandlerFunc {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
-		err := repo.CreateUser(req.Username, req.Password)
+
+		// Хеширование пароля перед сохранением
+		hashedPassword, err := auth.HashPassword(req.Password)
+		if err != nil {
+			response := AuthResponse{Error: "failed to hash password"}
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		err = repo.CreateUser(req.Login, hashedPassword)
 		if err != nil {
 			response := AuthResponse{Error: err.Error()}
 			w.WriteHeader(http.StatusBadRequest)
@@ -37,7 +48,24 @@ func RegisterHandler(repo db.UserRepository) http.HandlerFunc {
 			return
 		}
 
-		response := AuthResponse{Token: "generated-jwt-token"}
+		// После регистрации сразу генерируем токен
+		user, err := repo.GetUserByCredentials(req.Login, hashedPassword)
+		if err != nil {
+			response := AuthResponse{Error: "failed to login after registration"}
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		token, err := auth.GenerateToken(int(user.ID))
+		if err != nil {
+			response := AuthResponse{Error: "failed to generate token"}
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		response := AuthResponse{Token: token}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}
@@ -56,7 +84,8 @@ func LoginHandler(repo db.UserRepository) http.HandlerFunc {
 			return
 		}
 
-		_, err := repo.GetUserByCredentials(req.Username, req.Password)
+		// Получаем пользователя по логину
+		user, err := repo.GetUserByLogin(req.Login)
 		if err != nil {
 			response := AuthResponse{Error: "invalid credentials"}
 			w.WriteHeader(http.StatusUnauthorized)
@@ -64,7 +93,24 @@ func LoginHandler(repo db.UserRepository) http.HandlerFunc {
 			return
 		}
 
-		response := AuthResponse{Token: "generated-jwt-token"}
+		// Проверяем пароль
+		if !auth.CheckPassword(req.Password, user.Password) {
+			response := AuthResponse{Error: "invalid credentials"}
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		// Генерируем JWT токен
+		token, err := auth.GenerateToken(int(user.ID))
+		if err != nil {
+			response := AuthResponse{Error: "failed to generate token"}
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		response := AuthResponse{Token: token}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}
