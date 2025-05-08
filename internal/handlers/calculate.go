@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/kupetss/calculator_golang_final/internal/auth"
+	"github.com/kupetss/calculator_golang_final/internal/grpc"
 )
 
 type CalculateRequest struct {
@@ -17,45 +20,41 @@ type CalculateResponse struct {
 	Error  string  `json:"error,omitempty"`
 }
 
-func CalculateHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// 1. Проверяем метод запроса
-		if r.Method != http.MethodPost {
-			http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		var req CalculateRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request format", http.StatusBadRequest)
-			return
-		}
-
-		if req.Expression == "" {
-			response := CalculateResponse{
-				Error: "Expression cannot be empty",
-			}
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response)
-			return
-		}
-
-		result, err := evaluateExpression(req.Expression)
-		if err != nil {
-			response := CalculateResponse{
-				Error: err.Error(),
-			}
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response)
-			return
-		}
-
-		response := CalculateResponse{
-			Result: result,
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+func CalculateHandler(w http.ResponseWriter, r *http.Request) {
+	// 1. Проверяем метод
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
+
+	// 2. Получаем user_id из JWT токена
+	userID, err := auth.GetUserIDFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// 3. Парсим тело запроса
+	var req struct {
+		Expression string `json:"expression"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// 4. Вызываем gRPC сервис
+	result, err := grpc.CallCalculate(req.Expression, userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// 5. Возвращаем результат
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"result": result,
+	})
 }
 
 func evaluateExpression(expr string) (float64, error) {
