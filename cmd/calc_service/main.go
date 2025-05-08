@@ -2,36 +2,52 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 
-	"github.com/kupetss/calculator_golang_final/internal/db"
-	"github.com/kupetss/calculator_golang_final/internal/handlers"
-	"github.com/kupetss/calculator_golang_final/internal/middleware"
+	"github.com/kupetss/calculator_golang_final/internal/auth"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
-	database, err := sql.Open("sqlite3", "./calc.db")
+	db, err := sql.Open("sqlite3", "./calculator.db")
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		log.Fatal(err)
 	}
-	defer database.Close()
+	defer db.Close()
 
-	if err := db.Migrate(database); err != nil {
-		log.Fatal("Migration failed:", err)
-	}
-
-	userRepo := db.NewUserRepository(database)
+	auth.InitAuth(db)
 
 	router := http.NewServeMux()
+	router.HandleFunc("/api/v1/register", auth.RegisterHandler)
+	router.HandleFunc("/api/v1/login", auth.LoginHandler)
 
-	router.HandleFunc("POST /api/v1/register", handlers.RegisterHandler(userRepo))
-	router.HandleFunc("POST /api/v1/login", handlers.LoginHandler(userRepo))
 	protected := http.NewServeMux()
-	protected.HandleFunc("POST /api/v1/calculate", handlers.CalculateHandler())
-	router.Handle("/api/v1/", middleware.AuthMiddleware(protected))
+	protected.Handle("/api/v1/calculate", auth.AuthMiddleware(http.HandlerFunc(calculateHandler)))
+
+	mainHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/register", "/api/v1/login":
+			router.ServeHTTP(w, r)
+		default:
+			protected.ServeHTTP(w, r)
+		}
+	})
 
 	log.Println("Server running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Fatal(http.ListenAndServe(":8080", mainHandler))
+}
+
+func calculateHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Ваша логика калькулятора
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"result": "Calculation result",
+	})
 }
