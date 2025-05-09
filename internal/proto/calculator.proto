@@ -1,6 +1,8 @@
 syntax = "proto3";
 
-option go_package = ".;calculator";
+package calculator;
+
+option go_package = "github.com/kupetss/calculator_golang_final/internal/proto";
 
 service CalculatorService {
   rpc Calculate (CalculationRequest) returns (CalculationResponse);

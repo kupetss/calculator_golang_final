@@ -5,8 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/kupetss/calculator_golang_final/proto"
-
+	"github.com/kupetss/calculator_golang_final/internal/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
