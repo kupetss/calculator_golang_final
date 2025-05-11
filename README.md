@@ -1,6 +1,4 @@
-# Калькулятор выражений с REST API
-
-Как правильно пользоваться калькулятором
+# Как правильно пользоваться калькулятором
 
 1 Скачайте calculator_golang_final_main.zip
 
@@ -65,3 +63,4 @@ $tasks | ForEach-Object {
     }
 } | Format-Table -AutoSize
 ```
+![схема](https://github.com/user-attachments/assets/feecc052-ae69-4355-86a7-f7b9f99326d0)
