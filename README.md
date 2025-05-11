@@ -2,7 +2,17 @@
 
 Как правильно пользоваться калькулятором
 
-1 Сначала зарегистрируйте нового пользователя
+1 Скачайте calculator_windows_amd64.zip
+
+2 Распакуйте архив
+
+
+3 Откройте папку с проектом в PowerShell и запустите сервер
+```powershell
+.\calculator.exe server
+```
+
+4 Откройте второе окно PowerShell и зарегистрируйте нового пользователя
 ```powershell
 Invoke-RestMethod -Uri "http://localhost:8080/register" `
   -Method Post `
@@ -10,7 +20,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/register" `
   -Body '{"username":"123123", "password":"123456"}'
 ```
 
-2 Выполните вход
+5 Выполните вход
 ```powershell
 $loginResponse = Invoke-RestMethod -Uri "http://localhost:8080/login" `
   -Method Post `
@@ -20,7 +30,7 @@ $loginResponse = Invoke-RestMethod -Uri "http://localhost:8080/login" `
 $token = $loginResponse.token
 ```
 
-3 Выполните несколько вычислений:
+6 Выполните несколько вычислений:
 ```powershell
 Invoke-RestMethod -Uri "http://localhost:8080/calculate" `
   -Method Post `
@@ -39,13 +49,12 @@ Invoke-RestMethod -Uri "http://localhost:8080/calculate" `
   -Body '{"expression":"5 * (3 + 1)"}'
 ```
 
-4 Получите все задачи пользователя:
+7 Получите все задачи пользователя:
 ```powershell
 $tasks = Invoke-RestMethod -Uri "http://localhost:8080/tasks" `
   -Method Get `
   -Headers @{"Authorization"="Bearer $token"}
 
-# Красивое отображение
 $tasks | ForEach-Object {
     [PSCustomObject]@{
         ID = $_.id
