@@ -19,7 +19,6 @@ func StartGRPCServer() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-
 	s := grpc.NewServer()
 	api.RegisterCalculatorServer(s, &Server{})
 
@@ -28,7 +27,6 @@ func StartGRPCServer() {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }
-
 func (s *Server) Calculate(ctx context.Context, req *api.CalculationRequest) (*api.CalculationResponse, error) {
 	result, err := calculator.Evaluate(req.Expression)
 	if err != nil {
