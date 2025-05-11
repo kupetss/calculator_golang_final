@@ -2,7 +2,7 @@
 
 Как правильно пользоваться калькулятором
 
-1 Скачайте calculator_windows_amd64.zip
+1 Скачайте calculator_golang_final_main.zip
 
 2 Распакуйте архив
 
